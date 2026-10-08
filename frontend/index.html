@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ClimateGuard – Know the risk. Act before it happens.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="page">
+    <header class="masthead">
+      <h1>ClimateGuard</h1>
+      <p>Know the risk. Act before it happens.</p>
+    </header>
+
+    <form id="search" class="search" autocomplete="off">
+      <label for="city">City</label>
+      <div class="search-row">
+        <input id="city" name="city" type="text" placeholder="Nagpur" required />
+        <button type="submit" id="go">Check risk</button>
+      </div>
+    </form>
+
+    <p id="message" class="message" role="status" hidden></p>
+
+    <section id="result" class="result" hidden aria-live="polite">
+      <div class="overall" id="overall">
+        <div>
+          <p class="where" id="where"></p>
+          <p class="overall-label">Overall risk</p>
+        </div>
+        <p class="overall-level" id="overallLevel"></p>
+      </div>
+
+      <div class="meters">
+        <article class="meter" id="heatMeter">
+          <div class="meter-head">
+            <h2>Heat risk</h2>
+            <p><strong id="heatLevel"></strong> <span id="heatScore"></span>/100</p>
+          </div>
+          <div class="scale" aria-hidden="true"><i id="heatMarker"></i></div>
+        </article>
+
+        <article class="meter" id="floodMeter">
+          <div class="meter-head">
+            <h2>Flood risk</h2>
+            <p><strong id="floodLevel"></strong> <span id="floodScore"></span>/100</p>
+          </div>
+          <div class="scale" aria-hidden="true"><i id="floodMarker"></i></div>
+        </article>
+      </div>
+
+      <dl class="readings">
+        <div><dt>Temperature</dt><dd id="temp"></dd></div>
+        <div><dt>Feels like</dt><dd id="feels"></dd></div>
+        <div><dt>Humidity</dt><dd id="humidity"></dd></div>
+        <div><dt>Rain, last 24 h</dt><dd id="rainPast"></dd></div>
+        <div><dt>Rain, next 24 h</dt><dd id="rainNext"></dd></div>
+      </dl>
+
+      <section class="advice">
+        <h2>What to do</h2>
+        <ul id="tips"></ul>
+      </section>
+    </section>
+
+    <section id="historyBox" class="history" hidden>
+      <h2>Recent checks</h2>
+      <ul id="history"></ul>
+    </section>
+
+    <footer class="foot">Weather data: Open-Meteo. Scores are guidance, not an official warning. Follow local authority advisories.</footer>
+  </main>
+
+  <script src="../backend/risk-engine.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

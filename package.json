@@ -1,0 +1,9 @@
+{
+  "name": "climateguard",
+  "version": "0.1.0",
+  "description": "Heat and flood risk alerts with actionable recommendations",
+  "scripts": {
+    "test": "node backend/risk-engine.test.js",
+    "start": "npx serve . -l 3000"
+  }
+}
