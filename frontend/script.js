@@ -1,10 +1,25 @@
 const { assess: assessRisk } = window.RiskEngine;
-
+ 
 const $ = (id) => document.getElementById(id);
 const HISTORY_KEY = "climateguard:history";
-
-/* ---------- Data (this part moves to Lambda in Phase 4-5) ---------- */
-
+ 
+/* ---------- Data ---------- */
+ 
+// Set in config.js. When empty, the dashboard fetches weather directly (local mode).
+const API = (window.CLIMATEGUARD_API || "").replace(/\/$/, "");
+ 
+async function fetchFromApi(city) {
+  let res;
+  try {
+    res = await fetch(`${API}/risk?city=${encodeURIComponent(city)}`);
+  } catch {
+    throw new Error("Could not reach the ClimateGuard service. Check your connection and try again.");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Something went wrong. Try again.");
+  return data;
+}
+ 
 async function geocode(city) {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en`;
   const res = await fetch(url);
@@ -16,7 +31,7 @@ async function geocode(city) {
   const p = data.results[0];
   return { name: p.name, region: p.admin1 || "", country: p.country || "", lat: p.latitude, lon: p.longitude };
 }
-
+ 
 async function fetchWeather(lat, lon) {
   const url =
     "https://api.open-meteo.com/v1/forecast" +
@@ -26,13 +41,13 @@ async function fetchWeather(lat, lon) {
   const res = await fetch(url);
   if (!res.ok) throw new Error("Weather service is not responding. Try again in a moment.");
   const d = await res.json();
-
+ 
   // Find the current hour inside the hourly series, then sum 24 h either side.
   const nowKey = d.current.time.slice(0, 13) + ":00";
   let i = d.hourly.time.indexOf(nowKey);
   if (i < 0) i = 24;
   const sum = (a, b) => d.hourly.precipitation.slice(a, b).reduce((s, v) => s + (v || 0), 0);
-
+ 
   return {
     temperature: d.current.temperature_2m,
     apparentTemperature: d.current.apparent_temperature,
@@ -41,34 +56,34 @@ async function fetchWeather(lat, lon) {
     rainNext24: Math.round(sum(i, i + 24) * 10) / 10,
   };
 }
-
+ 
 /* ---------- Rendering ---------- */
-
+ 
 function setMessage(text) {
   const el = $("message");
   el.textContent = text || "";
   el.hidden = !text;
 }
-
+ 
 function render(place, w, r) {
   const label = [place.name, place.region].filter(Boolean).join(", ");
   $("where").textContent = label;
   $("overall").dataset.level = r.overall;
   $("overallLevel").textContent = r.overall;
-
+ 
   for (const [key, risk] of [["heat", r.heat], ["flood", r.flood]]) {
     $(`${key}Meter`).dataset.level = risk.level;
     $(`${key}Level`).textContent = risk.level;
     $(`${key}Score`).textContent = risk.score;
     $(`${key}Marker`).style.left = `${risk.score}%`;
   }
-
+ 
   $("temp").textContent = `${Math.round(w.temperature)}°C`;
   $("feels").textContent = `${Math.round(w.apparentTemperature)}°C`;
   $("humidity").textContent = `${Math.round(w.humidity)}%`;
   $("rainPast").textContent = `${w.rainPast24} mm`;
   $("rainNext").textContent = `${w.rainNext24} mm`;
-
+ 
   $("tips").innerHTML = "";
   for (const t of r.tips) {
     const li = document.createElement("li");
@@ -78,9 +93,9 @@ function render(place, w, r) {
   document.querySelector(".advice").dataset.level = r.overall;
   $("result").hidden = false;
 }
-
+ 
 /* ---------- History (localStorage now, DynamoDB in Phase 6) ---------- */
-
+ 
 function loadHistory() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; }
 }
@@ -108,17 +123,22 @@ function renderHistory() {
     ul.appendChild(li);
   }
 }
-
+ 
 /* ---------- Flow ---------- */
-
+ 
 async function check(city) {
   setMessage("");
   $("go").disabled = true;
   $("go").textContent = "Checking…";
   try {
-    const place = await geocode(city);
-    const weather = await fetchWeather(place.lat, place.lon);
-    const result = assessRisk(weather);
+    let place, weather, result;
+    if (API) {
+      ({ place, weather, risk: result } = await fetchFromApi(city));
+    } else {
+      place = await geocode(city);
+      weather = await fetchWeather(place.lat, place.lon);
+      result = assessRisk(weather);
+    }
     render(place, weather, result);
     saveHistory({ city: place.name, overall: result.overall, time: Date.now() });
   } catch (err) {
@@ -129,11 +149,11 @@ async function check(city) {
     $("go").textContent = "Check risk";
   }
 }
-
+ 
 $("search").addEventListener("submit", (e) => {
   e.preventDefault();
   const city = $("city").value.trim();
   if (city) check(city);
 });
-
+ 
 renderHistory();
