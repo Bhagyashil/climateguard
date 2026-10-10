@@ -1,0 +1,6 @@
+services:
+  climateguard:
+    build: .
+    image: climateguard:local
+    ports:
+      - "8080:80"

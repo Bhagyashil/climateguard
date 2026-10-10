@@ -1,17 +1,17 @@
 name: CI/CD
- 
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
- 
+
 env:
   AWS_REGION: ap-south-1
   LAMBDA_FUNCTION: climateguard-risk
   S3_BUCKET: climateguard-web-bhagyashil
   CLOUDFRONT_DISTRIBUTION_ID: E2THSWVCSMDA0
- 
+
 jobs:
   test:
     name: Test
@@ -22,7 +22,15 @@ jobs:
         with:
           node-version: 22
       - run: npm test
- 
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image (also runs the tests inside the build)
+        run: docker build -t climateguard:ci .
+
   deploy:
     name: Deploy to AWS
     needs: test
@@ -34,29 +42,29 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
- 
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           # Role ARNs are not secret, so it is written here instead of in a GitHub secret.
           role-to-assume: arn:aws:iam::765959262538:role/climateguard-deploy-access
           aws-region: ${{ env.AWS_REGION }}
- 
+
       - name: Package Lambda
         run: |
           mkdir -p dist
           cd backend
           zip ../dist/lambda.zip handler.js history.js risk-engine.js
- 
+
       - name: Deploy Lambda
         run: |
           aws lambda update-function-code \
             --function-name "$LAMBDA_FUNCTION" \
             --zip-file fileb://dist/lambda.zip
           aws lambda wait function-updated --function-name "$LAMBDA_FUNCTION"
- 
+
       - name: Deploy website to S3
         run: aws s3 sync frontend/ "s3://$S3_BUCKET/" --delete
- 
+
       - name: Clear CloudFront cache
         run: |
           aws cloudfront create-invalidation \
