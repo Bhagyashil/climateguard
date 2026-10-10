@@ -35,9 +35,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # TEMPORARY DEBUG: prints the (non-secret) claims GitHub sends, so we can
+      # compare them with the role's trust policy. Remove once deploy works.
+      - name: Show OIDC claims
+        run: |
+          curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" \
+          | python3 -c "import sys,json,base64; t=json.load(sys.stdin)['value'].split('.')[1]; t+='='*(-len(t)%4); c=json.loads(base64.urlsafe_b64decode(t)); print(json.dumps({k:c.get(k) for k in ('iss','aud','sub')}, indent=2))"
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          # Role ARNs are not secret, so it is written here instead of in a GitHub secret.
+          role-to-assume: arn:aws:iam::765959262538:role/climateguard-deploy-access
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Package Lambda
