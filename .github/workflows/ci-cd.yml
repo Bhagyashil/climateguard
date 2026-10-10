@@ -1,0 +1,63 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: ap-south-1
+  LAMBDA_FUNCTION: climateguard-risk
+  S3_BUCKET: climateguard-web-bhagyashil
+  CLOUDFRONT_DISTRIBUTION_ID: E2THSWVCSMDA0
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+
+  deploy:
+    name: Deploy to AWS
+    needs: test
+    # Only deploy when code lands on main, never for pull requests.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # lets GitHub request short-lived AWS credentials (no stored keys)
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Package Lambda
+        run: |
+          mkdir -p dist
+          cd backend
+          zip ../dist/lambda.zip handler.js history.js risk-engine.js
+
+      - name: Deploy Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name "$LAMBDA_FUNCTION" \
+            --zip-file fileb://dist/lambda.zip
+          aws lambda wait function-updated --function-name "$LAMBDA_FUNCTION"
+
+      - name: Deploy website to S3
+        run: aws s3 sync frontend/ "s3://$S3_BUCKET/" --delete
+
+      - name: Clear CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*"
