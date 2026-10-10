@@ -31,6 +31,19 @@ jobs:
       - name: Build image (also runs the tests inside the build)
         run: docker build -t climateguard:ci .
 
+  terraform:
+    name: Terraform validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infrastructure/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      # No AWS credentials needed: this only checks the code is valid.
+      - run: terraform init -backend=false
+      - run: terraform validate
+
   deploy:
     name: Deploy to AWS
     needs: test
