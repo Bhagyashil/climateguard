@@ -1,17 +1,17 @@
 name: CI/CD
-
+ 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
+ 
 env:
   AWS_REGION: ap-south-1
   LAMBDA_FUNCTION: climateguard-risk
   S3_BUCKET: climateguard-web-bhagyashil
   CLOUDFRONT_DISTRIBUTION_ID: E2THSWVCSMDA0
-
+ 
 jobs:
   test:
     name: Test
@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: 22
       - run: npm test
-
+ 
   deploy:
     name: Deploy to AWS
     needs: test
@@ -34,37 +34,29 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-
-      # TEMPORARY DEBUG: prints the (non-secret) claims GitHub sends, so we can
-      # compare them with the role's trust policy. Remove once deploy works.
-      - name: Show OIDC claims
-        run: |
-          curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" \
-          | python3 -c "import sys,json,base64; t=json.load(sys.stdin)['value'].split('.')[1]; t+='='*(-len(t)%4); c=json.loads(base64.urlsafe_b64decode(t)); print(json.dumps({k:c.get(k) for k in ('iss','aud','sub')}, indent=2))"
-
+ 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           # Role ARNs are not secret, so it is written here instead of in a GitHub secret.
           role-to-assume: arn:aws:iam::765959262538:role/climateguard-deploy-access
           aws-region: ${{ env.AWS_REGION }}
-
+ 
       - name: Package Lambda
         run: |
           mkdir -p dist
           cd backend
           zip ../dist/lambda.zip handler.js history.js risk-engine.js
-
+ 
       - name: Deploy Lambda
         run: |
           aws lambda update-function-code \
             --function-name "$LAMBDA_FUNCTION" \
             --zip-file fileb://dist/lambda.zip
           aws lambda wait function-updated --function-name "$LAMBDA_FUNCTION"
-
+ 
       - name: Deploy website to S3
         run: aws s3 sync frontend/ "s3://$S3_BUCKET/" --delete
-
+ 
       - name: Clear CloudFront cache
         run: |
           aws cloudfront create-invalidation \
