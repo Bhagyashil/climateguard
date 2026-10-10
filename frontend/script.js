@@ -75,7 +75,7 @@ function setMessage(text) {
   el.hidden = !text;
 }
 
-function render(place, w, r) {
+function render(place, w, r, past = []) {
   const label = [place.name, place.region].filter(Boolean).join(", ");
   $("where").textContent = label;
   $("overall").dataset.level = r.overall;
@@ -101,7 +101,32 @@ function render(place, w, r) {
     $("tips").appendChild(li);
   }
   document.querySelector(".advice").dataset.level = r.overall;
+  renderPlaceHistory(label, past);
   $("result").hidden = false;
+}
+
+function renderPlaceHistory(label, past) {
+  const box = $("placeHistory");
+  box.hidden = !past || past.length === 0;
+  if (box.hidden) return;
+  $("placeHistoryFor").textContent = `Last ${past.length} saved check${past.length === 1 ? "" : "s"} for ${label}`;
+  const ul = $("placeHistoryList");
+  ul.innerHTML = "";
+  for (const h of past) {
+    const li = document.createElement("li");
+    li.dataset.level = h.overall;
+    const when = document.createElement("span");
+    when.className = "when";
+    when.textContent = new Date(h.checkedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    const lvl = document.createElement("strong");
+    lvl.className = "tag";
+    lvl.textContent = h.overall;
+    const detail = document.createElement("span");
+    detail.className = "detail";
+    detail.textContent = `Heat ${h.heatScore} · Flood ${h.floodScore} · ${Math.round(h.temperature)}°C`;
+    li.append(when, lvl, detail);
+    ul.appendChild(li);
+  }
 }
 
 /* ---------- History (localStorage now, DynamoDB in Phase 6) ---------- */
@@ -141,16 +166,16 @@ async function check(city) {
   $("go").disabled = true;
   $("go").textContent = "Checking…";
   try {
-    let place, weather, result;
+    let place, weather, result, past = [];
     if (API) {
-      ({ place, weather, risk: result } = await fetchFromApi(city));
+      ({ place, weather, risk: result, history: past = [] } = await fetchFromApi(city));
     } else {
       place = await geocode(city);
       weather = await fetchWeather(place.lat, place.lon);
       const engine = await loadEngine();
       result = engine.assess(weather);
     }
-    render(place, weather, result);
+    render(place, weather, result, past);
     saveHistory({ city: place.name, overall: result.overall, time: Date.now() });
   } catch (err) {
     $("result").hidden = true;

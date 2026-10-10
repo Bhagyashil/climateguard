@@ -5,6 +5,6 @@
   "scripts": {
     "test": "node backend/risk-engine.test.js && node backend/handler.test.js",
     "start": "npx serve . -l 3000",
-    "package": "node -e \"require('fs').mkdirSync('dist',{recursive:true})\" && cd backend && tar -a -cf ../dist/lambda.zip handler.js risk-engine.js"
+    "package": "node -e \"require('fs').mkdirSync('dist',{recursive:true})\" && cd backend && tar -a -cf ../dist/lambda.zip handler.js history.js risk-engine.js"
   }
 }
